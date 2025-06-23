@@ -30,10 +30,18 @@ type Props = {
   currentPositionX?: AnimatedType,
   currentPositionY?: AnimatedType,
   changeVisibilityCallback?: () => void,
+  visibilityArea:number
 };
 
+/**
+ * Represents a class that provides animated View.
+ * Required props: componentVisible, children.
+ * Props changeVisibilityCallback required if disableDrag prop is false.
+ */
 export default class SlidingView extends Component<Props> {
-  componentDidMount() {
+  constructor(props) {
+    super(props);
+
     this.Responder = createResponder({
       onStartShouldSetResponder: () => true,
       onStartShouldSetResponderCapture: () => false,
@@ -49,6 +57,23 @@ export default class SlidingView extends Component<Props> {
     });
   }
 
+  /**
+   * Checks for initial mode (visible or not).
+   * If visible - toggles it to visible position.
+   */
+  componentDidMount() {
+    const { componentVisible } = this.props;
+    if (componentVisible) {
+      this.toggle();
+    }
+  }
+
+  /**
+   * Checks two things:
+   * 1) Changing visibility by componentVisible prop.
+   * 2) Changing current position when drag'n'drop is handled by user.
+   * @param prevProps {Props}
+   */
   componentDidUpdate(prevProps) {
     const { componentVisible, disableDrag, currentPositionY, currentPositionX } = this.props;
 
@@ -70,10 +95,23 @@ export default class SlidingView extends Component<Props> {
     }
   }
 
-  x: AnimatedType = new Animated.Value(-wp(100));
+  /**
+   * Animted value for horizontal type.
+   * @type {Animated.Value}
+   */
+  x: AnimatedType = new Animated.Value(-(this.props.width-this.props.visibilityArea));
 
+  /**
+   * Animted value for vertical type.
+   * @type {Animated.Value}
+   */
   y: AnimatedType = new Animated.Value(0);
 
+  /**
+   * Handles pan by user.
+   * Checks the mode (vertical / horizontal) and delegates to further functions (handleVerticalMove / handleHorizontalMove).
+   * @param gestureState
+   */
   pan = gestureState => {
     if (this.isVertical()) {
       return this.handleVerticalMove(gestureState);
@@ -81,6 +119,11 @@ export default class SlidingView extends Component<Props> {
     return this.handleHorizontalMove(gestureState);
   };
 
+  /**
+   * Handles vertical pans.
+   * Updates current position according to gestureState.
+   * @param gestureState
+   */
   handleVerticalMove = gestureState => {
     const { position, height } = this.props;
     const { bottom } = positions;
@@ -99,6 +142,11 @@ export default class SlidingView extends Component<Props> {
     y.setValue(newY);
   };
 
+  /**
+   * Handles vertical pans.
+   * Updates current position according to gestureState.
+   * @param gestureState
+   */
   handleHorizontalMove = gestureState => {
     const { position, width } = this.props;
     const { previousMoveX, moveX } = gestureState;
@@ -116,6 +164,11 @@ export default class SlidingView extends Component<Props> {
     x.setValue(newX);
   };
 
+  /**
+   * Checks if disableAutoDragEnd is passed.
+   * If it's not - handles finish of drag according to vertical or horizontal mode.
+   * @param gestureState
+   */
   dragEnd = gestureState => {
     const { disableAutoDragEnd } = this.props;
     if (disableAutoDragEnd) return;
@@ -123,6 +176,12 @@ export default class SlidingView extends Component<Props> {
     else this.handleHorizontalDragEnd(gestureState);
   };
 
+  /**
+   * Handles vertical drop (on release event).
+   * Checks the direction of movement and either hides the component or returns it to the maximum value.
+   * @param gestureState
+   * @returns {Number | Function}
+   */
   handleVerticalDragEnd = gestureState => {
     const { bottom, top } = positions;
     const { moveY, previousMoveY } = gestureState;
@@ -141,10 +200,16 @@ export default class SlidingView extends Component<Props> {
     return animateToMax({ type: this.y });
   };
 
+  /**
+   * Handles horizontal drop (on release event).
+   * Checks the direction of movement and either hides the component or returns it to the maximum value.
+   * @param gestureState
+   * @returns {Number | Function}
+   */
   handleHorizontalDragEnd = gestureState => {
     const { left, right } = positions;
     const { moveX, previousMoveX } = gestureState;
-    const { animationDuration, position, width, changeVisibilityCallback } = this.props;
+    const { animationDuration, position, width, changeVisibilityCallback,visibilityArea } = this.props;
     const { animateToMax } = this;
     if (
       (position === left && moveX < previousMoveX) ||
@@ -152,7 +217,7 @@ export default class SlidingView extends Component<Props> {
     ) {
       this.animate({
         type: this.x,
-        toValue: -width,
+        toValue: -(width-visibilityArea),
       });
       return setTimeout(changeVisibilityCallback, animationDuration);
     }
@@ -195,6 +260,7 @@ export default class SlidingView extends Component<Props> {
       toValue,
       duration: animationDuration,
       delay,
+      useNativeDriver:false
     }).start();
   };
 
@@ -212,12 +278,22 @@ export default class SlidingView extends Component<Props> {
     });
   };
 
+  /**
+   * Gets component's width defined by width prop. Only for horizontal cases.
+   * In case of incorrect position throws an error.
+   * @returns {number}
+   */
   getWidth = () => {
-    const { width, position } = this.props;
-    if (position === positions.left || position === positions.right) return -width;
+    const { width, position ,visibilityArea} = this.props;
+    if (position === positions.left || position === positions.right) return -(width-visibilityArea);
     throw new Error(errors.incorrectPosition);
   };
 
+  /**
+   * Gets component's height defined by height prop for bottom position and be height + statusbar for top one.
+   * In case of incorrect position throws an error.
+   * @returns {*}
+   */
   getHeight = () => {
     const { height, position } = this.props;
     if (position === positions.top) return height + getStatusBarHeight();
@@ -225,6 +301,10 @@ export default class SlidingView extends Component<Props> {
     throw new Error(errors.incorrectPosition);
   };
 
+  /**
+   * Gets styles for the component based on position, height and width prop.
+   * @returns {*[]}
+   */
   getStyles = () => {
     const { position, width, height, containerStyle } = this.props;
     const { x, y } = this;
@@ -262,4 +342,5 @@ SlidingView.defaultProps = {
   disableAutoDragEnd: false,
   disableDrag: false,
   changeVisibilityCallback: () => {},
+  visibilityArea:wp(4)
 };
