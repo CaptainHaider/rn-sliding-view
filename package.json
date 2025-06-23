@@ -3,6 +3,7 @@
   "version": "1.0.6",
   "description": "Customizable sliding view for react-native. Supports different positioning and sizes, allows making itself draggable, etc.",
   "main": "index.js",
+  "types": "index.d.ts",
   "repository": {
     "url": "https://github.com/CaptainHaider/rn-sliding-view",
     "type": "git"
